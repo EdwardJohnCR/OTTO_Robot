@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTTO Control Pro Studio</title>
+    <style>
+        :root { --primary: #4361ee; --bg: #f8f9fa; --card: #ffffff; --text: #2b2d42; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: var(--primary); margin-bottom: 20px; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; width: 100%; max-width: 1100px; }
+        @media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .card h2 { margin-top: 0; font-size: 1.2rem; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+        
+        .slider-container { background: #f1f3f5; padding: 12px; border-radius: 8px; margin-bottom: 15px; }
+        .slider-row { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; }
+        .slider-speed-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+        
+        input[type=range] { width: 100%; height: 8px; border-radius: 5px; background: #dee2e6; outline: none; -webkit-appearance: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--primary); cursor: pointer; }
+        .slider-speed::-webkit-slider-thumb { background: #e63946; width: 16px; height: 16px; }
+
+        button { background: var(--primary); color: white; border: none; padding: 10px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
+        button:active { transform: scale(0.98); }
+        .btn-success { background: #2a9d8f; margin-top:15px; padding: 15px; font-size:1.1rem; }
+        .btn-danger { background: #e63946; }
+        .btn-export { background: #f4a261; color: #000; }
+        .btn-import { background: #8338ec; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 0.8rem; }
+        th, td { text-align: center; padding: 6px; border-bottom: 1px solid #ddd; }
+        th { background-color: var(--bg); }
+        .action-btn { width: auto; padding: 4px 8px; margin: 0; border-radius: 4px; font-size: 0.8rem; }
+        #importFile { display: none; }
+    </style>
+</head>
+<body>
+    <h1>🤖 OTTO Studio Pro (Ejes Independientes)</h1>
+    <div class="dashboard-grid">
+        
+        <!-- COLUMNA IZQ: Control Manual y Grabación -->
+        <div class="card">
+            <h2>Control de Articulaciones</h2>
+            
+            <div class="slider-container">
+                <div class="slider-row"><label>Pierna Izquierda (LL)</label><span id="val_ll">90&deg;</span></div>
+                <input type="range" id="ll" min="0" max="180" value="90" oninput="updateServo('ll', this.value)">
+                <div class="slider-speed-row">
+                    <span style="font-size:0.8rem; color:#e63946;">⏱️ Vel:</span>
+                    <input type="range" id="s_ll" class="slider-speed" min="0" max="3000" step="50" value="500" oninput="updateSpeed('s_ll', this.value)">
+                    <span id="val_s_ll" style="font-size:0.8rem; min-width:45px; text-align:right;">500ms</span>
+                </div>
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-row"><label>Pie Izquierdo (LF)</label><span id="val_lf">90&deg;</span></div>
+                <input type="range" id="lf" min="0" max="180" value="90" oninput="updateServo('lf', this.value)">
+                <div class="slider-speed-row">
+                    <span style="font-size:0.8rem; color:#e63946;">⏱️ Vel:</span>
+                    <input type="range" id="s_lf" class="slider-speed" min="0" max="3000" step="50" value="500" oninput="updateSpeed('s_lf', this.value)">
+                    <span id="val_s_lf" style="font-size:0.8rem; min-width:45px; text-align:right;">500ms</span>
+                </div>
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-row"><label>Pierna Derecha (RL)</label><span id="val_rl">90&deg;</span></div>
+                <input type="range" id="rl" min="0" max="180" value="90" oninput="updateServo('rl', this.value)">
+                <div class="slider-speed-row">
+                    <span style="font-size:0.8rem; color:#e63946;">⏱️ Vel:</span>
+                    <input type="range" id="s_rl" class="slider-speed" min="0" max="3000" step="50" value="500" oninput="updateSpeed('s_rl', this.value)">
+                    <span id="val_s_rl" style="font-size:0.8rem; min-width:45px; text-align:right;">500ms</span>
+                </div>
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-row"><label>Pie Derecho (RF)</label><span id="val_rf">90&deg;</span></div>
+                <input type="range" id="rf" min="0" max="180" value="90" oninput="updateServo('rf', this.value)">
+                <div class="slider-speed-row">
+                    <span style="font-size:0.8rem; color:#e63946;">⏱️ Vel:</span>
+                    <input type="range" id="s_rf" class="slider-speed" min="0" max="3000" step="50" value="500" oninput="updateSpeed('s_rf', this.value)">
+                    <span id="val_s_rf" style="font-size:0.8rem; min-width:45px; text-align:right;">500ms</span>
+                </div>
+            </div>
+            
+            <button id="btnGuardar" class="btn-success" onclick="guardarPose()">📸 Guardar Pose en Rutina</button>
+        </div>
+
+        <!-- COLUMNA DER: Gestión de Rutina -->
+        <div class="card">
+            <h2>Línea de Tiempo</h2>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>LL (vel)</th><th>LF (vel)</th><th>RL (vel)</th><th>RF (vel)</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla_rutina">
+                        <!-- JS -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button onclick="reproducirRutina()">▶️ Reproducir</button>
+                <button class="btn-danger" onclick="borrarRutina()">🗑️ Limpiar</button>
+            </div>
+            
+            <hr style="border: 1px solid #eee; margin: 15px 0;">
+            
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-export" onclick="exportarRutina()">💾 Exportar</button>
+                <button class="btn-import" onclick="document.getElementById('importFile').click()">📂 Importar</button>
+                <input type="file" id="importFile" accept=".json" onchange="importarRutina(event)">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let rutina = [];
+        // Estructura de datos expandida con 4 velocidades independientes
+        let currentPose = {ll:90, lf:90, rl:90, rf:90, s_ll:500, s_lf:500, s_rl:500, s_rf:500};
+        let editIndex = -1;
+        let timeout;
+
+        // Actualiza ángulos instantáneos (Control manual sin velocidad)
+        function updateServo(motor, angle) {
+            currentPose[motor] = parseInt(angle);
+            document.getElementById('val_' + motor).innerText = angle + '°';
+            clearTimeout(timeout);
+            timeout = setTimeout(() => { fetch(`/set_servo?motor=${motor}&angle=${angle}`); }, 200);
+        }
+
+        // Actualiza los sliders rojos de velocidad
+        function updateSpeed(speedKey, val) {
+            currentPose[speedKey] = parseInt(val);
+            document.getElementById('val_' + speedKey).innerText = val + 'ms';
+        }
+
+        function guardarPose() {
+            if (editIndex > -1) {
+                rutina[editIndex] = {...currentPose};
+                editIndex = -1;
+                document.getElementById('btnGuardar').innerText = "📸 Guardar Pose en Rutina";
+                document.getElementById('btnGuardar').className = "btn-success";
+            } else {
+                rutina.push({...currentPose});
+            }
+            renderTabla();
+        }
+
+        function cargarParaEditar(index) {
+            currentPose = {...rutina[index]};
+            editIndex = index;
+            
+            // Cargar valores a la UI (Ángulos y Velocidades)
+            for (let key in currentPose) {
+                document.getElementById(key).value = currentPose[key];
+                if(key.startsWith('s_')) {
+                    document.getElementById('val_' + key).innerText = currentPose[key] + 'ms';
+                } else {
+                    document.getElementById('val_' + key).innerText = currentPose[key] + '°';
+                }
+            }
+            
+            document.getElementById('btnGuardar').innerText = `🔄 Actualizar Pose ${index + 1}`;
+            document.getElementById('btnGuardar').style.backgroundColor = "#f4a261";
+            
+            // Mover a la pose editada
+            fetch(`/set_pose?ll=${currentPose.ll}&lf=${currentPose.lf}&rl=${currentPose.rl}&rf=${currentPose.rf}&s_ll=0&s_lf=0&s_rl=0&s_rf=0`);
+        }
+
+        function eliminarPose(index) {
+            rutina.splice(index, 1);
+            if (editIndex === index) {
+                editIndex = -1;
+                document.getElementById('btnGuardar').innerText = "📸 Guardar Pose en Rutina";
+                document.getElementById('btnGuardar').className = "btn-success";
+            }
+            renderTabla();
+        }
+
+        function borrarRutina() {
+            if(confirm("¿Vaciar línea de tiempo?")) { rutina = []; renderTabla(); }
+        }
+
+        function renderTabla() {
+            const tbody = document.getElementById('tabla_rutina');
+            tbody.innerHTML = '';
+            rutina.forEach((p, index) => {
+                tbody.innerHTML += `
+                    <tr style="${index === editIndex ? 'background-color: #fff3cd;' : ''}">
+                        <td><b>${index + 1}</b></td>
+                        <td>${p.ll}&deg;<br><small style="color:#e63946">${p.s_ll}ms</small></td>
+                        <td>${p.lf}&deg;<br><small style="color:#e63946">${p.s_lf}ms</small></td>
+                        <td>${p.rl}&deg;<br><small style="color:#e63946">${p.s_rl}ms</small></td>
+                        <td>${p.rf}&deg;<br><small style="color:#e63946">${p.s_rf}ms</small></td>
+                        <td>
+                            <button class="action-btn" style="background:#f4a261; color:black;" onclick="cargarParaEditar(${index})">✏️</button>
+                            <button class="action-btn btn-danger" onclick="eliminarPose(${index})">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function reproducirRutina() {
+            if(rutina.length === 0) return alert("Rutina vacía.");
+            for(let pose of rutina) {
+                // 1. Actualizar los sliders visualmente
+                for (let m of ['ll', 'lf', 'rl', 'rf']) {
+                    document.getElementById(m).value = pose[m];
+                    document.getElementById('val_' + m).innerText = pose[m] + '°';
+                }
+                
+                // 2. Enviar parámetros y esperar a que el servidor termine el movimiento
+                await fetch(`/set_pose?ll=${pose.ll}&lf=${pose.lf}&rl=${pose.rl}&rf=${pose.rf}&s_ll=${pose.s_ll}&s_lf=${pose.s_lf}&s_rl=${pose.s_rl}&s_rf=${pose.s_rf}`);
+                
+                // 3. Pausa mínima de 100ms para estabilizar motores antes del siguiente paso
+                await new Promise(r => setTimeout(r, 10));
+            }
+        }
+
+        // Exportar e Importar JSON
+        function exportarRutina() {
+            if(rutina.length === 0) return alert("Nada que exportar.");
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(rutina, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr; a.download = "otto_avanzado.json";
+            document.body.appendChild(a); a.click(); a.remove();
+        }
+
+        function importarRutina(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const cargado = JSON.parse(e.target.result);
+                    if(Array.isArray(cargado)) { rutina = cargado; renderTabla(); } 
+                    else { alert("Formato inválido."); }
+                } catch(err) { alert("Error al leer JSON."); }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; 
+        }
+    </script>
+</body>
+</html>
