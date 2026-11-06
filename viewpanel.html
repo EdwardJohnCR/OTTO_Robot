@@ -220,7 +220,7 @@
                 await fetch(`/set_pose?ll=${pose.ll}&lf=${pose.lf}&rl=${pose.rl}&rf=${pose.rf}&s_ll=${pose.s_ll}&s_lf=${pose.s_lf}&s_rl=${pose.s_rl}&s_rf=${pose.s_rf}`);
                 
                 // 3. Pausa mínima de 100ms para estabilizar motores antes del siguiente paso
-                await new Promise(r => setTimeout(r, 10));
+                await new Promise(r => setTimeout(r, 100));
             }
         }
 

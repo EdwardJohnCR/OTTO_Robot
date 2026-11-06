@@ -25,7 +25,7 @@ steps = {"ll": 0.0, "lf": 0.0, "rl": 0.0, "rf": 0.0}
 # ==========================================
 # 2. CONEXIÓN A RED LOCAL
 # ==========================================
-mi_ip_fija = ipaddress.IPv4Address("192.168.88.246") 
+mi_ip_fija = ipaddress.IPv4Address("192.168.88.250") 
 mascara = ipaddress.IPv4Address("255.255.255.0")
 puerta_enlace = ipaddress.IPv4Address("192.168.88.1") 
 
@@ -116,9 +116,21 @@ async def tarea_cinematica():
         
         await asyncio.sleep(0.02)
 
+async def tarea_reconexion():
+        """Vigila la conexión y la levanta si se cae"""
+        while True:
+            if not wifi.radio.ipv4_address:
+                print("Conexión perdida. Intentando reconectar a Test-Connet...")
+                try:
+                    wifi.radio.connect("Test-Connet", "claveSegura")
+                    print(f"Reconectado. IP: {wifi.radio.ipv4_address}")
+                except Exception:
+                    pass # Falla silenciosamente y vuelve a intentar en 5 segundos
+            await asyncio.sleep(5)
+
 async def main():
-    # Lanza ambas tareas simultáneamente
-    await asyncio.gather(tarea_servidor_web(), tarea_cinematica())
+        # Lanza las TRES tareas simultáneamente
+        await asyncio.gather(tarea_servidor_web(), tarea_cinematica(), tarea_reconexion())
 
 # Inicia el motor de multitarea
 asyncio.run(main())
