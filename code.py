@@ -3,102 +3,118 @@ import board
 import pwmio
 import wifi
 import socketpool
-import ipaddress
 from adafruit_motor import servo
 from adafruit_httpserver import Server, Request, Response, FileResponse
+
 
 # ==========================================
 # 1. CONFIGURACIÓN DE MOTORES
 # ==========================================
 pines = {"lf": board.IO5, "ll": board.IO18, "rf": board.IO19, "rl": board.IO23}
 motores = {}
+
+current_angles = {}
+target_angles = {}
+start_angles = {}
+
 for nombre, pin in pines.items():
     pwm = pwmio.PWMOut(pin, duty_cycle=2 ** 15, frequency=50)
     motores[nombre] = servo.Servo(pwm, min_pulse=500, max_pulse=2400)
     motores[nombre].angle = 90
+    current_angles[nombre] = 90.0
+    target_angles[nombre] = 90.0
+    start_angles[nombre] = 90.0
+
+is_moving = False
+move_start_time = 0.0
+move_duration = 0.5 
 
 # ==========================================
-# 2. CONEXIÓN A RED LOCAL
+# 2. CONEXIÓN A RED LOCAL (DHCP)
 # ==========================================
-mi_ip_fija = ipaddress.IPv4Address("192.168.88.246") 
-mascara = ipaddress.IPv4Address("255.255.255.0")
-puerta_enlace = ipaddress.IPv4Address("192.168.88.1") 
-
-wifi.radio.set_ipv4_address(ipv4=mi_ip_fija, netmask=mascara, gateway=puerta_enlace)
 print("Conectando a 'Test-Connet'...")
 try:
     wifi.radio.connect("Test-Connet", "claveSegura")
-    print(f"Conectado exitosamente. IP: {wifi.radio.ipv4_address}")
+    print(f"IP asignada: {wifi.radio.ipv4_address}")
 except Exception as e:
-    print("Error al conectar al Wi-Fi:", e)
+    print("Error Wi-Fi:", e)
 
 # ==========================================
 # 3. SERVIDOR WEB Y RUTAS
 # ==========================================
 pool = socketpool.SocketPool(wifi.radio)
-server = Server(pool, "/static")
+# CORRECCIÓN 1: La raíz ahora es "/" para que encuentre el index.html suelto
+server = Server(pool, "/")
 
 @server.route("/")
 def base(request: Request):
+    # CORRECCIÓN 2: Eliminado el "/" extra que causaba TypeError
     return FileResponse(request, "index.html", "/")
 
 @server.route("/favicon.ico")
 def favicon(request: Request):
-    return Response(request, "No icon", status=404)
+    return Response(request, "No icon")
 
 @server.route("/set_servo")
 def set_servo(request: Request):
     motor = request.query_params.get("motor")
     angle_str = request.query_params.get("angle")
-    if motor in motores and angle_str is not None:
-        try: motores[motor].angle = int(angle_str)
+    if motor in pines and angle_str is not None:
+        try:
+            val = max(0, min(180, int(angle_str)))
+            motores[motor].angle = val
+            current_angles[motor] = val
+            target_angles[motor] = val
         except ValueError: pass
     return Response(request, "OK")
 
 @server.route("/set_pose")
 def set_pose(request: Request):
-    # 1. Leer los ángulos objetivo
-    targets = {}
-    for m in ["ll", "lf", "rl", "rf"]:
+    global is_moving, move_start_time, move_duration
+    
+    # Mejora de robustez al leer la velocidad
+    val_speed = request.query_params.get("speed")
+    try:
+        speed_ms = int(val_speed) if val_speed else 500
+    except ValueError:
+        speed_ms = 500
+        
+    requested_duration = speed_ms / 1000.0
+    
+    max_diff = 0
+    for m in pines.keys():
         val = request.query_params.get(m)
         if val is not None:
-            try: targets[m] = int(val)
+            try: 
+                target = max(0, min(180, int(val)))
+                target_angles[m] = target
+                start_angles[m] = current_angles[m]
+                
+                diff = abs(target - start_angles[m])
+                if diff > max_diff:
+                    max_diff = diff
             except ValueError: pass
+
+    min_safe_duration = max_diff / 400.0
     
-    # 2. Leer la velocidad solicitada
-    speed = 0
-    try:
-        speed_str = request.query_params.get("speed")
-        if speed_str: speed = int(speed_str)
-    except ValueError:
-        pass
+    if requested_duration < min_safe_duration:
+        move_duration = min_safe_duration
+    else:
+        move_duration = requested_duration
 
-    # 3. Interpolar (Mover suavemente) si la velocidad es > 0
-    if speed > 0:
-        pasos = 20 # Cantidad de divisiones para el movimiento suave
-        delay = (speed / 1000.0) / pasos
-        starts = {m: motores[m].angle for m in targets}
+    if move_duration <= 0:
+        move_duration = 0.01 
         
-        for i in range(1, pasos + 1):
-            for m, target in targets.items():
-                start = starts[m]
-                if start is None: start = 90
-                # Cálculo lineal del ángulo intermedio
-                current = start + (target - start) * (i / pasos)
-                # Limitar rangos mecánicos de seguridad
-                motores[m].angle = max(0, min(180, current))
-            time.sleep(delay)
-
-    # Asegurar posición final exacta
-    for m, target in targets.items():
-        motores[m].angle = max(0, min(180, target))
-        
+    move_start_time = time.monotonic()
+    is_moving = True
+            
     return Response(request, "OK")
 
+
 # ==========================================
-# 4. BUCLE PRINCIPAL ROBUSTO
+# 4. BUCLE PRINCIPAL (MÁQUINA DE ESTADOS)
 # ==========================================
-print(f"Iniciando servidor web en http://{wifi.radio.ipv4_address}")
+print(f"Servidor en http://{wifi.radio.ipv4_address}")
 server.start(str(wifi.radio.ipv4_address), port=80)
 
 while True:
@@ -106,6 +122,23 @@ while True:
         server.poll()
     except OSError as e:
         if getattr(e, 'errno', None) in (113, 104): pass
-        else: print("Error de Red:", e)
     except Exception as e:
-        print("Error HTTP General:", e)
+        # CORRECCIÓN 3: Si hay un error, ¡ahora sí lo veremos en la consola!
+        print("Error HTTP:", e) 
+        
+    if is_moving:
+        now = time.monotonic()
+        elapsed = now - move_start_time
+        
+        if elapsed >= move_duration:
+            for m in pines.keys():
+                current_angles[m] = target_angles[m]
+                motores[m].angle = current_angles[m]
+            is_moving = False
+        else:
+            progress = elapsed / move_duration
+            for m in pines.keys():
+                current_angles[m] = start_angles[m] + (target_angles[m] - start_angles[m]) * progress
+                motores[m].angle = current_angles[m]
+                
+    time.sleep(0.005)

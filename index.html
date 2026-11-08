@@ -18,13 +18,15 @@
         .slider-group label { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem;}
         input[type=range] { width: 100%; height: 8px; border-radius: 5px; background: #e9ecef; outline: none; -webkit-appearance: none; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--primary); cursor: pointer; }
-        .slider-speed::-webkit-slider-thumb { background: #e63946; } /* Rojo para velocidad */
+        .slider-speed::-webkit-slider-thumb { background: #e63946; }
+        .slider-wait::-webkit-slider-thumb { background: #f4a261; }
 
         /* Botones y Tablas */
         button { background: var(--primary); color: white; border: none; padding: 10px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px; transition: 0.2s; }
         button:active { transform: scale(0.98); }
         .btn-success { background: #2a9d8f; }
         .btn-danger { background: #e63946; }
+        .btn-warning { background: #ffb703; color: #000; }
         .btn-export { background: #f4a261; color: #000; }
         .btn-import { background: #8338ec; }
         
@@ -45,14 +47,20 @@
             <h2>Control y Nueva Pose</h2>
             <div class="slider-group"><label>Pierna Izquierda (LL) <span id="val_ll">90&deg;</span></label><input type="range" id="ll" min="0" max="180" value="90" oninput="updateServo('ll', this.value)"></div>
             <div class="slider-group"><label>Pie Izquierdo (LF) <span id="val_lf">90&deg;</span></label><input type="range" id="lf" min="0" max="180" value="90" oninput="updateServo('lf', this.value)"></div>
-            <div class="slider-group"><label>Pierna Derecha (RL) <span id="val_rl">90&deg;</span></label><input type="range" id="rl" min="0" max="180" value="90" oninput="updateServo('rl', this.value)"></div>
-            <div class="slider-group"><label>Pie Derecho (RF) <span id="val_rf">90&deg;</span></label><input type="range" id="rf" min="0" max="180" value="90" oninput="updateServo('rf', this.value)"></div>
+            <div class="slider-group"><label>Pierna Derecha (RL) <span id="val_rl">87&deg;</span></label><input type="range" id="rl" min="0" max="180" value="87" oninput="updateServo('rl', this.value)"></div>
+            <div class="slider-group"><label>Pie Derecho (RF) <span id="val_rf">81&deg;</span></label><input type="range" id="rf" min="0" max="180" value="81" oninput="updateServo('rf', this.value)"></div>
             
             <hr style="border: 1px solid #eee; margin: 15px 0;">
             
+            <!-- NUEVOS CONTROLES SEPARADOS DE TIEMPO Y VELOCIDAD -->
             <div class="slider-group">
-                <label>Velocidad de esta pose <span id="val_speed">500 ms</span></label>
+                <label>Velocidad de motores (Duración) <span id="val_speed">500 ms</span></label>
                 <input type="range" id="speed" class="slider-speed" min="100" max="2000" step="50" value="500" oninput="updateSpeed(this.value)">
+            </div>
+            
+            <div class="slider-group">
+                <label>Espera hasta próxima pose <span id="val_wait">500 ms</span></label>
+                <input type="range" id="wait" class="slider-wait" min="0" max="3000" step="50" value="500" oninput="updateWait(this.value)">
             </div>
             
             <button id="btnGuardar" class="btn-success" onclick="guardarPose()">📸 Guardar Nueva Pose</button>
@@ -68,18 +76,19 @@
                         <tr>
                             <th>#</th>
                             <th>LL</th><th>LF</th><th>RL</th><th>RF</th>
-                            <th>Velocidad</th>
+                            <th>Veloc.</th>
+                            <th>Espera</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="tabla_rutina">
-                        <!-- Filas generadas por JS -->
-                    </tbody>
+                    <tbody id="tabla_rutina"></tbody>
                 </table>
             </div>
             
+            <!-- CONTROLES DE REPRODUCCIÓN -->
             <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button onclick="reproducirRutina()">▶️ Reproducir</button>
+                <button class="btn-success" onclick="reproducirRutina()">▶️ Reproducir</button>
+                <button class="btn-warning" onclick="detenerRutina()">🛑 Detener</button>
                 <button class="btn-danger" onclick="borrarRutina()">🗑️ Limpiar</button>
             </div>
             
@@ -95,56 +104,62 @@
 
     <script>
         let rutina = [];
-        let currentPose = {ll: 90, lf: 90, rl: 90, rf: 90, speed: 500};
-        let editIndex = -1; // -1 significa que estamos creando una nueva pose
+        let currentPose = {ll: 90, lf: 90, rl: 87, rf: 81, speed: 500, wait: 500};
+        let editIndex = -1;
         let timeout;
+        
+        let rutina_activa = false; 
 
-        // Actualiza ángulos instantáneos (0 ms speed para control manual)
         function updateServo(motor, angle) {
             currentPose[motor] = parseInt(angle);
             document.getElementById('val_' + motor).innerText = angle + '°';
             clearTimeout(timeout);
-            timeout = setTimeout(() => { fetch(`/set_servo?motor=${motor}&angle=${angle}`); }, 200);
+            timeout = setTimeout(() => { fetch(`/set_servo?motor=${motor}&angle=${angle}`); }, 150);
         }
 
-        // Actualiza la variable de velocidad
+        // Actualiza la velocidad de los motores
         function updateSpeed(val) {
             currentPose.speed = parseInt(val);
             document.getElementById('val_speed').innerText = val + ' ms';
         }
+        
+        // Actualiza el tiempo de espera hasta la siguiente pose
+        function updateWait(val) {
+            currentPose.wait = parseInt(val);
+            document.getElementById('val_wait').innerText = val + ' ms';
+        }
 
-        // Lógica de Guardar / Modificar
         function guardarPose() {
             if (editIndex > -1) {
-                rutina[editIndex] = {...currentPose}; // Sobrescribe la existente
+                rutina[editIndex] = {...currentPose};
                 editIndex = -1;
                 document.getElementById('btnGuardar').innerText = "📸 Guardar Nueva Pose";
                 document.getElementById('btnGuardar').className = "btn-success";
             } else {
-                rutina.push({...currentPose}); // Agrega al final
+                rutina.push({...currentPose});
             }
             renderTabla();
         }
 
-        // Carga una pose de la tabla a los sliders para editarla
         function cargarParaEditar(index) {
             currentPose = {...rutina[index]};
             editIndex = index;
             
-            // Actualizar UI
             ['ll', 'lf', 'rl', 'rf'].forEach(m => {
                 document.getElementById(m).value = currentPose[m];
                 document.getElementById('val_' + m).innerText = currentPose[m] + '°';
             });
+            
             document.getElementById('speed').value = currentPose.speed;
             document.getElementById('val_speed').innerText = currentPose.speed + ' ms';
             
-            // Cambiar el botón
+            // Cargamos el nuevo valor de espera en la UI
+            document.getElementById('wait').value = currentPose.wait;
+            document.getElementById('val_wait').innerText = currentPose.wait + ' ms';
+            
             document.getElementById('btnGuardar').innerText = `🔄 Actualizar Pose ${index + 1}`;
             document.getElementById('btnGuardar').style.backgroundColor = "#f4a261";
-            
-            // Mover el robot a esa pose instantáneamente para verla
-            fetch(`/set_pose?ll=${currentPose.ll}&lf=${currentPose.lf}&rl=${currentPose.rl}&rf=${currentPose.rf}&speed=0`);
+            fetch(`/set_pose?ll=${currentPose.ll}&lf=${currentPose.lf}&rl=${currentPose.rl}&rf=${currentPose.rf}`);
         }
 
         function eliminarPose(index) {
@@ -164,7 +179,6 @@
             }
         }
 
-        // Dibuja la tabla HTML
         function renderTabla() {
             const tbody = document.getElementById('tabla_rutina');
             tbody.innerHTML = '';
@@ -174,6 +188,7 @@
                         <td><b>${index + 1}</b></td>
                         <td>${pose.ll}</td><td>${pose.lf}</td><td>${pose.rl}</td><td>${pose.rf}</td>
                         <td>${pose.speed}ms</td>
+                        <td>${pose.wait}ms</td>
                         <td>
                             <button class="action-btn" style="background:#f4a261; color:black;" onclick="cargarParaEditar(${index})">✏️</button>
                             <button class="action-btn btn-danger" onclick="eliminarPose(${index})">🗑️</button>
@@ -183,25 +198,63 @@
             });
         }
 
-        // Reproduce la rutina interpretando la velocidad desde el ESP32
         async function reproducirRutina() {
             if(rutina.length === 0) return alert("La rutina está vacía.");
+            if(rutina_activa) return; 
+            
+            rutina_activa = true;
+            
             for(let pose of rutina) {
-                // Envía los ángulos y el tiempo al ESP32 para que él haga el barrido
-                await fetch(`/set_pose?ll=${pose.ll}&lf=${pose.lf}&rl=${pose.rl}&rf=${pose.rf}&speed=${pose.speed}`);
+                if (!rutina_activa) {
+                    console.log("Rutina abortada por el usuario");
+                    break; 
+                }
+
+                // 1. Envía la orden incluyendo la velocidad de los motores (speed)
+                try {
+                    await fetch(`/set_pose?ll=${pose.ll}&lf=${pose.lf}&rl=${pose.rl}&rf=${pose.rf}&speed=${pose.speed}`);
+                } catch(e) {
+                    console.error("Error de conexión:", e);
+                }
                 
-                // Sincroniza visualmente los sliders de la interfaz
+                // 2. Sincroniza los sliders visualmente
                 for (let m of ['ll', 'lf', 'rl', 'rf']) {
                     document.getElementById(m).value = pose[m];
                     document.getElementById('val_' + m).innerText = pose[m] + '°';
                 }
                 
-                // Espera el tiempo de la pose + un pequeño margen para que el ESP32 finalice el bucle
-                await new Promise(r => setTimeout(r, pose.speed + 150));
+                // 3. El navegador gestiona el tiempo de espera (wait) independiente de la velocidad.
+                await new Promise(r => setTimeout(r, pose.wait));
             }
+            rutina_activa = false;
         }
 
-        // Manejo de Archivos JSON
+        // FUNCIÓN DEL BOTÓN DETENER 
+        function detenerRutina() {
+            rutina_activa = false;
+            
+            // Ángulos de reposo calibrados
+            const homeAngles = {ll: 90, lf: 90, rl: 87, rf: 81};
+            
+            // Envía la orden de ir a home
+            fetch(`/set_pose?ll=${homeAngles.ll}&lf=${homeAngles.lf}&rl=${homeAngles.rl}&rf=${homeAngles.rf}&speed=500`);
+            
+            // Sincroniza los sliders visuales
+            ['ll', 'lf', 'rl', 'rf'].forEach(m => {
+                document.getElementById(m).value = homeAngles[m];  
+                document.getElementById('val_' + m).innerText = homeAngles[m] + '°';
+            });
+            
+            // Restablece la memoria interna (evita ángulos fantasma)
+            currentPose = {...homeAngles, speed: 500, wait: 500};
+            document.getElementById('speed').value = 500;
+            document.getElementById('val_speed').innerText = '500 ms';
+            document.getElementById('wait').value = 500;
+            document.getElementById('val_wait').innerText = '500 ms';
+            
+            console.log("Rutina detenida. Memoria limpiada y volviendo a posición de reposo.");
+        }
+
         function exportarRutina() {
             if(rutina.length === 0) return alert("No hay datos para exportar.");
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(rutina, null, 2));
@@ -221,17 +274,17 @@
                 try {
                     const cargado = JSON.parse(e.target.result);
                     if(Array.isArray(cargado)) {
-                        rutina = cargado;
+                        // Verifica si las rutinas antiguas no tienen 'wait', y les asigna el mismo valor de 'speed' por compatibilidad
+                        rutina = cargado.map(p => ({
+                            ...p, 
+                            wait: p.wait !== undefined ? p.wait : p.speed 
+                        }));
                         renderTabla();
-                    } else {
-                        alert("El archivo no tiene un formato de rutina válido.");
-                    }
-                } catch(err) {
-                    alert("Error leyendo el archivo JSON.");
-                }
+                    } else { alert("El archivo no tiene un formato de rutina válido."); }
+                } catch(err) { alert("Error leyendo el archivo JSON."); }
             };
             reader.readAsText(file);
-            event.target.value = ''; // Resetea el input
+            event.target.value = '';
         }
     </script>
 </body>
