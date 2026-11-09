@@ -269,7 +269,7 @@
             macro_activa = false; // rutina automatica 
             
             // Ángulos de reposo calibrados
-            const homeAngles = {ll: 90, lf: 90, rl: 87, rf: 81};
+            const homeAngles = {ll: 90, lf: 78, rl: 90, rf: 90};
             
             // Envía la orden de ir a home
             fetch(`/set_pose?ll=${homeAngles.ll}&lf=${homeAngles.lf}&rl=${homeAngles.rl}&rf=${homeAngles.rf}&speed=500`);
@@ -329,35 +329,63 @@
         let macro_activa = false;
 
         // Diccionario de movimientos base de Otto
-const macros = {
-            'atras': [ // <--- Antes decía 'adelante'
-                {ll: 90, lf: 120, rl: 87, rf: 81, speed: 300, wait: 300}, 
-                {ll: 110, lf: 120, rl: 107, rf: 81, speed: 300, wait: 300}, 
-                {ll: 110, lf: 90, rl: 107, rf: 81, speed: 300, wait: 300}, 
-                {ll: 110, lf: 90, rl: 107, rf: 50, speed: 300, wait: 300}, 
-                {ll: 90, lf: 90, rl: 87, rf: 50, speed: 300, wait: 300}, 
-                {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
-            ],
-            // Ahora creamos la verdadera caminata hacia ADELANTE invirtiendo los grados de los pies (lf y rf)
+// Diccionario de movimientos base de Otto
+        const macros = {
+            // NUEVO ADELANTE (El que antes era Moonwalk)
             'adelante': [
-                {ll: 90, lf: 60, rl: 87, rf: 81, speed: 300, wait: 300}, // Pie izq hacia adelante (60 en vez de 120)
+                {ll: 90, lf: 60, rl: 87, rf: 50, speed: 200, wait: 200},  // Levanta pies
+                {ll: 120, lf: 60, rl: 117, rf: 50, speed: 300, wait: 300}, // Gira caderas hacia adelante
+                {ll: 120, lf: 120, rl: 117, rf: 110, speed: 200, wait: 200},// Cambia inclinación
+                {ll: 90, lf: 120, rl: 87, rf: 110, speed: 300, wait: 300}  // Regresa caderas
+            ],
+            
+            // NUEVO ATRÁS (Inverso del adelante: pies iguales, caderas al lado contrario)
+            'atras': [
+                {ll: 90, lf: 60, rl: 87, rf: 50, speed: 200, wait: 200},  // Mismos pies que adelante
+                {ll: 60, lf: 60, rl: 57, rf: 50, speed: 300, wait: 300},  // Caderas hacia ATRÁS (60/57 en vez de 120/117)
+                {ll: 60, lf: 120, rl: 57, rf: 110, speed: 200, wait: 200},// Mismos pies que adelante
+                {ll: 90, lf: 120, rl: 87, rf: 110, speed: 300, wait: 300} // Regresa caderas al centro
+            ],
+
+            // NUEVO MOONWALK (El que antes era Adelante)
+            'moonwalk': [
+                {ll: 90, lf: 60, rl: 87, rf: 81, speed: 300, wait: 300}, 
                 {ll: 110, lf: 60, rl: 107, rf: 81, speed: 300, wait: 300}, 
                 {ll: 110, lf: 90, rl: 107, rf: 81, speed: 300, wait: 300}, 
-                {ll: 110, lf: 90, rl: 107, rf: 110, speed: 300, wait: 300}, // Pie der hacia adelante (110 en vez de 50)
+                {ll: 110, lf: 90, rl: 107, rf: 110, speed: 300, wait: 300}, 
                 {ll: 90, lf: 90, rl: 87, rf: 110, speed: 300, wait: 300}, 
                 {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
             ],
-            // Giro a la Izquierda
+
+            // Los demás se mantienen igual
             'izquierda': [
                 {ll: 90, lf: 120, rl: 87, rf: 81, speed: 300, wait: 300}, 
                 {ll: 110, lf: 120, rl: 107, rf: 81, speed: 300, wait: 300}, 
                 {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
             ],
-            // Giro a la Derecha
             'derecha': [
                 {ll: 90, lf: 90, rl: 87, rf: 50, speed: 300, wait: 300}, 
                 {ll: 70, lf: 90, rl: 67, rf: 50, speed: 300, wait: 300}, 
                 {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
+            ],
+            'feliz': [
+                {ll: 90, lf: 70, rl: 87, rf: 100, speed: 150, wait: 150}, 
+                {ll: 90, lf: 110, rl: 87, rf: 60, speed: 150, wait: 150},
+                {ll: 90, lf: 70, rl: 87, rf: 100, speed: 150, wait: 150}, 
+                {ll: 90, lf: 110, rl: 87, rf: 60, speed: 150, wait: 150}
+            ],
+            'swing': [
+                {ll: 90, lf: 60, rl: 87, rf: 50, speed: 400, wait: 400},
+                {ll: 110, lf: 60, rl: 107, rf: 50, speed: 400, wait: 400},
+                {ll: 90, lf: 120, rl: 87, rf: 110, speed: 400, wait: 400},
+                {ll: 70, lf: 120, rl: 67, rf: 110, speed: 400, wait: 400}
+            ],
+            'susto': [
+                {ll: 120, lf: 60, rl: 57, rf: 100, speed: 100, wait: 200}, 
+                {ll: 120, lf: 80, rl: 57, rf: 90, speed: 80, wait: 100},   
+                {ll: 120, lf: 60, rl: 57, rf: 100, speed: 80, wait: 100},  
+                {ll: 120, lf: 80, rl: 57, rf: 90, speed: 80, wait: 100},   
+                {ll: 90, lf: 90, rl: 87, rf: 81, speed: 800, wait: 800}    
             ]
         };
 
@@ -404,9 +432,17 @@ const macros = {
             }, 500);
         }
 
-        function ejecutarBaile(baile) {
-             detenerRutina();
-             // Aquí conectaremos los bailes más adelante
+function ejecutarBaile(baile) {
+            // Detenemos a Otto y lo centramos
+            detenerRutina(); 
+            
+            // Damos 500ms para que vuelva a su posición inicial segura
+            setTimeout(() => {
+                if(macros[baile]) {
+                    // Repetimos el ciclo de baile 4 veces para que dure más
+                    reproducirMacro(macros[baile], 4); 
+                }
+            }, 500);
         }
 
     </script>
