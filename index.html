@@ -414,8 +414,16 @@
             macro_activa = false;
         }
 
+        // Función para enviar sonidos al ESP32
+        function hacerBeep(freq, dur) {
+            fetch(`/beep?f=${freq}&d=${dur}`).catch(e => {});
+        }
+
         function macroCaminar(direccion) {
-            detenerRutina(); 
+            detenerRutina();
+            // Tonos de caminata (Beep corto)
+            hacerBeep(800, 100);
+            
             setTimeout(() => {
                 if(macros[direccion]) {
                     reproducirMacro(macros[direccion], 3); 
@@ -425,6 +433,25 @@
 
         function ejecutarBaile(baile) {
             detenerRutina(); 
+            
+            // PERSONALIDAD SONORA SEGÚN EL BAILE
+            if (baile === 'feliz') {
+                // Secuencia ascendente a lo Mario Bros
+                hacerBeep(900, 100);
+                setTimeout(() => hacerBeep(1200, 100), 150);
+                setTimeout(() => hacerBeep(1600, 200), 300);
+            } else if (baile === 'susto') {
+                // Tono agudo y de pánico
+                hacerBeep(2500, 500);
+            } else if (baile === 'saludo') {
+                // Doble bip amigable
+                hacerBeep(1000, 150);
+                setTimeout(() => hacerBeep(1500, 150), 200);
+            } else {
+                // Tono estándar para swing o moonwalk
+                hacerBeep(600, 200);
+            }
+            
             setTimeout(() => {
                 if(macros[baile]) {
                     let repeticiones = (baile === 'saludo') ? 1 : 4; 
