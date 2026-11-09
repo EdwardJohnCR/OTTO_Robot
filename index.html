@@ -8,7 +8,7 @@
         :root { --primary: #4361ee; --bg: #f8f9fa; --card: #ffffff; --text: #2b2d42; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         h1 { color: var(--primary); margin-bottom: 20px; }
-        .dashboard-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; width: 100%; max-width: 1000px; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 20px; width: 100%; max-width: 1200px; }
         @media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
         .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .card h2 { margin-top: 0; font-size: 1.2rem; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
@@ -39,7 +39,7 @@
     </style>
 </head>
 <body>
-    <h1>🤖 OTTO Studio Pro</h1>
+    <h1>🤖 OTTO Control Pro Studio</h1>
     <div class="dashboard-grid">
         
         <!-- COLUMNA IZQ: Control Manual y Grabación -->
@@ -64,6 +64,40 @@
             </div>
             
             <button id="btnGuardar" class="btn-success" onclick="guardarPose()">📸 Guardar Nueva Pose</button>
+        </div>
+
+        <!-- COLUMNA CENTRAL: Movimientos Automáticos -->
+        <div class="card">
+            <h2>Movimientos Automáticos</h2>
+            
+            <div style="text-align: center; margin-bottom: 20px;">
+                <p style="font-weight: bold; margin-bottom: 10px;">Dirección</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; max-width: 200px; margin: 0 auto;">
+                    <div></div> <!-- Espacio vacío -->
+                    <button class="btn-success" onclick="macroCaminar('adelante')">⬆️</button>
+                    <div></div> <!-- Espacio vacío -->
+                    
+                    <button class="btn-success" onclick="macroCaminar('izquierda')">⬅️</button>
+                    <button class="btn-warning" onclick="detenerRutina()">🛑</button>
+                    <button class="btn-success" onclick="macroCaminar('derecha')">➡️</button>
+                    
+                    <div></div> <!-- Espacio vacío -->
+                    <button class="btn-success" onclick="macroCaminar('atras')">⬇️</button>
+                    <div></div> <!-- Espacio vacío -->
+                </div>
+            </div>
+
+            <hr style="border: 1px solid #eee; margin: 15px 0;">
+
+            <div style="text-align: center;">
+                <p style="font-weight: bold; margin-bottom: 10px;">Bailes / Emociones</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button style="background: #9b5de5;" onclick="ejecutarBaile('feliz')">😄 Feliz</button>
+                    <button style="background: #f15bb5;" onclick="ejecutarBaile('swing')">💃 Swing</button>
+                    <button style="background: #00bbf9;" onclick="ejecutarBaile('moonwalk')">🌙 Moonwalk</button>
+                    <button style="background: #00f5d4; color: black;" onclick="ejecutarBaile('susto')">😱 Susto</button>
+                </div>
+            </div>
         </div>
 
         <!-- COLUMNA DER: Gestión de Rutina -->
@@ -231,7 +265,8 @@
 
         // FUNCIÓN DEL BOTÓN DETENER 
         function detenerRutina() {
-            rutina_activa = false;
+            rutina_activa = false; // rutina manual
+            macro_activa = false; // rutina automatica 
             
             // Ángulos de reposo calibrados
             const homeAngles = {ll: 90, lf: 90, rl: 87, rf: 81};
@@ -286,6 +321,94 @@
             reader.readAsText(file);
             event.target.value = '';
         }
+
+        // ==========================================
+        // LÓGICA DE MOVIMIENTOS PREDEFINIDOS (MACROS)
+        // ==========================================
+        
+        let macro_activa = false;
+
+        // Diccionario de movimientos base de Otto
+const macros = {
+            'atras': [ // <--- Antes decía 'adelante'
+                {ll: 90, lf: 120, rl: 87, rf: 81, speed: 300, wait: 300}, 
+                {ll: 110, lf: 120, rl: 107, rf: 81, speed: 300, wait: 300}, 
+                {ll: 110, lf: 90, rl: 107, rf: 81, speed: 300, wait: 300}, 
+                {ll: 110, lf: 90, rl: 107, rf: 50, speed: 300, wait: 300}, 
+                {ll: 90, lf: 90, rl: 87, rf: 50, speed: 300, wait: 300}, 
+                {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
+            ],
+            // Ahora creamos la verdadera caminata hacia ADELANTE invirtiendo los grados de los pies (lf y rf)
+            'adelante': [
+                {ll: 90, lf: 60, rl: 87, rf: 81, speed: 300, wait: 300}, // Pie izq hacia adelante (60 en vez de 120)
+                {ll: 110, lf: 60, rl: 107, rf: 81, speed: 300, wait: 300}, 
+                {ll: 110, lf: 90, rl: 107, rf: 81, speed: 300, wait: 300}, 
+                {ll: 110, lf: 90, rl: 107, rf: 110, speed: 300, wait: 300}, // Pie der hacia adelante (110 en vez de 50)
+                {ll: 90, lf: 90, rl: 87, rf: 110, speed: 300, wait: 300}, 
+                {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
+            ],
+            // Giro a la Izquierda
+            'izquierda': [
+                {ll: 90, lf: 120, rl: 87, rf: 81, speed: 300, wait: 300}, 
+                {ll: 110, lf: 120, rl: 107, rf: 81, speed: 300, wait: 300}, 
+                {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
+            ],
+            // Giro a la Derecha
+            'derecha': [
+                {ll: 90, lf: 90, rl: 87, rf: 50, speed: 300, wait: 300}, 
+                {ll: 70, lf: 90, rl: 67, rf: 50, speed: 300, wait: 300}, 
+                {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
+            ]
+        };
+
+        // Función reproductora de Macros
+        async function reproducirMacro(secuencia, repeticiones = 1) {
+            if(rutina_activa || macro_activa) {
+                console.log("Ya hay una rutina ejecutándose");
+                return;
+            }
+            
+            macro_activa = true;
+            
+            for(let r = 0; r < repeticiones; r++) {
+                for(let pose of secuencia) {
+                    if (!macro_activa) {
+                        break; 
+                    }
+                    try {
+                        await fetch(`/set_pose?ll=${pose.ll}&lf=${pose.lf}&rl=${pose.rl}&rf=${pose.rf}&speed=${pose.speed}`);
+                    } catch(e) {}
+                    
+                    // Sincronización visual
+                    ['ll', 'lf', 'rl', 'rf'].forEach(m => {
+                        document.getElementById(m).value = pose[m];
+                        document.getElementById('val_' + m).innerText = pose[m] + '°';
+                    });
+                    
+                    await new Promise(r => setTimeout(r, pose.wait));
+                }
+            }
+            macro_activa = false;
+        }
+
+        // Activadores de los botones
+        function macroCaminar(direccion) {
+            // Detenemos cualquier cosa que esté haciendo
+            detenerRutina(); 
+            // Damos 500ms para que Otto vuelva a "Home" antes de empezar a caminar
+            setTimeout(() => {
+                if(macros[direccion]) {
+                    // Camina repitiendo el ciclo 3 veces
+                    reproducirMacro(macros[direccion], 3); 
+                }
+            }, 500);
+        }
+
+        function ejecutarBaile(baile) {
+             detenerRutina();
+             // Aquí conectaremos los bailes más adelante
+        }
+
     </script>
 </body>
 </html>
