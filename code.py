@@ -6,7 +6,7 @@ import socketpool
 from adafruit_motor import servo
 from adafruit_httpserver import Server, Request, Response, FileResponse
 
-
+    
 # ==========================================
 # 1. CONFIGURACIÓN DE MOTORES
 # ==========================================
@@ -43,13 +43,12 @@ except Exception as e:
 # 3. SERVIDOR WEB Y RUTAS
 # ==========================================
 pool = socketpool.SocketPool(wifi.radio)
-# CORRECCIÓN 1: La raíz ahora es "/" para que encuentre el index.html suelto
+# La raíz ahora es "/" para que encuentre el index.html suelto
 server = Server(pool, "/")
 
 @server.route("/")
 def base(request: Request):
-    # CORRECCIÓN 2: Eliminado el "/" extra que causaba TypeError
-    return FileResponse(request, "index.html", "/")
+    return FileResponse(request, "index.html")
 
 @server.route("/favicon.ico")
 def favicon(request: Request):
@@ -123,7 +122,7 @@ while True:
     except OSError as e:
         if getattr(e, 'errno', None) in (113, 104): pass
     except Exception as e:
-        # CORRECCIÓN 3: Si hay un error, ¡ahora sí lo veremos en la consola!
+        # Error en la consola!
         print("Error HTTP:", e) 
         
     if is_moving:
@@ -142,3 +141,4 @@ while True:
                 motores[m].angle = current_angles[m]
                 
     time.sleep(0.005)
+    

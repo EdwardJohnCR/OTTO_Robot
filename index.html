@@ -52,7 +52,7 @@
             
             <hr style="border: 1px solid #eee; margin: 15px 0;">
             
-            <!-- NUEVOS CONTROLES SEPARADOS DE TIEMPO Y VELOCIDAD -->
+            <!-- CONTROLES SEPARADOS DE TIEMPO Y VELOCIDAD -->
             <div class="slider-group">
                 <label>Velocidad de motores (Duración) <span id="val_speed">500 ms</span></label>
                 <input type="range" id="speed" class="slider-speed" min="100" max="2000" step="50" value="500" oninput="updateSpeed(this.value)">
@@ -73,17 +73,17 @@
             <div style="text-align: center; margin-bottom: 20px;">
                 <p style="font-weight: bold; margin-bottom: 10px;">Dirección</p>
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; max-width: 200px; margin: 0 auto;">
-                    <div></div> <!-- Espacio vacío -->
+                    <div></div>
                     <button class="btn-success" onclick="macroCaminar('adelante')">⬆️</button>
-                    <div></div> <!-- Espacio vacío -->
+                    <div></div>
                     
                     <button class="btn-success" onclick="macroCaminar('izquierda')">⬅️</button>
                     <button class="btn-warning" onclick="detenerRutina()">🛑</button>
                     <button class="btn-success" onclick="macroCaminar('derecha')">➡️</button>
                     
-                    <div></div> <!-- Espacio vacío -->
+                    <div></div>
                     <button class="btn-success" onclick="macroCaminar('atras')">⬇️</button>
-                    <div></div> <!-- Espacio vacío -->
+                    <div></div>
                 </div>
             </div>
 
@@ -94,8 +94,9 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <button style="background: #9b5de5;" onclick="ejecutarBaile('feliz')">😄 Feliz</button>
                     <button style="background: #f15bb5;" onclick="ejecutarBaile('swing')">💃 Swing</button>
-                    <button style="background: #00bbf9;" onclick="ejecutarBaile('moonwalk')">🌙 Moonwalk</button>
-                    <button style="background: #00f5d4; color: black;" onclick="ejecutarBaile('susto')">😱 Susto</button>
+                    <button style="background: #00bbf9;" onclick="ejecutarBaile('susto')">😱 Susto</button>
+                    /**/<button style="background: #00bbf9;" onclick="ejecutarBaile('moonwalk')">🌙 Moonwalk</button>
+                    <button style="background: #ff9f1c; color: black;" onclick="ejecutarBaile('saludo')">👋 Saludo</button>
                 </div>
             </div>
         </div>
@@ -116,7 +117,7 @@
                         </tr>
                     </thead>
                     <tbody id="tabla_rutina"></tbody>
-                </table>
+                </table>    
             </div>
             
             <!-- CONTROLES DE REPRODUCCIÓN -->
@@ -143,6 +144,7 @@
         let timeout;
         
         let rutina_activa = false; 
+        let macro_activa = false;
 
         function updateServo(motor, angle) {
             currentPose[motor] = parseInt(angle);
@@ -151,13 +153,11 @@
             timeout = setTimeout(() => { fetch(`/set_servo?motor=${motor}&angle=${angle}`); }, 150);
         }
 
-        // Actualiza la velocidad de los motores
         function updateSpeed(val) {
             currentPose.speed = parseInt(val);
             document.getElementById('val_speed').innerText = val + ' ms';
         }
         
-        // Actualiza el tiempo de espera hasta la siguiente pose
         function updateWait(val) {
             currentPose.wait = parseInt(val);
             document.getElementById('val_wait').innerText = val + ' ms';
@@ -186,8 +186,6 @@
             
             document.getElementById('speed').value = currentPose.speed;
             document.getElementById('val_speed').innerText = currentPose.speed + ' ms';
-            
-            // Cargamos el nuevo valor de espera en la UI
             document.getElementById('wait').value = currentPose.wait;
             document.getElementById('val_wait').innerText = currentPose.wait + ' ms';
             
@@ -239,55 +237,39 @@
             rutina_activa = true;
             
             for(let pose of rutina) {
-                if (!rutina_activa) {
-                    console.log("Rutina abortada por el usuario");
-                    break; 
-                }
-
-                // 1. Envía la orden incluyendo la velocidad de los motores (speed)
+                if (!rutina_activa) break; 
                 try {
                     await fetch(`/set_pose?ll=${pose.ll}&lf=${pose.lf}&rl=${pose.rl}&rf=${pose.rf}&speed=${pose.speed}`);
                 } catch(e) {
                     console.error("Error de conexión:", e);
                 }
                 
-                // 2. Sincroniza los sliders visualmente
                 for (let m of ['ll', 'lf', 'rl', 'rf']) {
                     document.getElementById(m).value = pose[m];
                     document.getElementById('val_' + m).innerText = pose[m] + '°';
                 }
-                
-                // 3. El navegador gestiona el tiempo de espera (wait) independiente de la velocidad.
                 await new Promise(r => setTimeout(r, pose.wait));
             }
             rutina_activa = false;
         }
 
-        // FUNCIÓN DEL BOTÓN DETENER 
         function detenerRutina() {
-            rutina_activa = false; // rutina manual
-            macro_activa = false; // rutina automatica 
+            rutina_activa = false;
+            macro_activa = false;
+            const homeAngles = {ll: 87, lf: 80, rl: 90, rf: 85};
             
-            // Ángulos de reposo calibrados
-            const homeAngles = {ll: 90, lf: 78, rl: 90, rf: 90};
-            
-            // Envía la orden de ir a home
             fetch(`/set_pose?ll=${homeAngles.ll}&lf=${homeAngles.lf}&rl=${homeAngles.rl}&rf=${homeAngles.rf}&speed=500`);
             
-            // Sincroniza los sliders visuales
             ['ll', 'lf', 'rl', 'rf'].forEach(m => {
                 document.getElementById(m).value = homeAngles[m];  
                 document.getElementById('val_' + m).innerText = homeAngles[m] + '°';
             });
             
-            // Restablece la memoria interna (evita ángulos fantasma)
             currentPose = {...homeAngles, speed: 500, wait: 500};
             document.getElementById('speed').value = 500;
             document.getElementById('val_speed').innerText = '500 ms';
             document.getElementById('wait').value = 500;
             document.getElementById('val_wait').innerText = '500 ms';
-            
-            console.log("Rutina detenida. Memoria limpiada y volviendo a posición de reposo.");
         }
 
         function exportarRutina() {
@@ -309,7 +291,6 @@
                 try {
                     const cargado = JSON.parse(e.target.result);
                     if(Array.isArray(cargado)) {
-                        // Verifica si las rutinas antiguas no tienen 'wait', y les asigna el mismo valor de 'speed' por compatibilidad
                         rutina = cargado.map(p => ({
                             ...p, 
                             wait: p.wait !== undefined ? p.wait : p.speed 
@@ -326,28 +307,19 @@
         // LÓGICA DE MOVIMIENTOS PREDEFINIDOS (MACROS)
         // ==========================================
         
-        let macro_activa = false;
-
-        // Diccionario de movimientos base de Otto
-// Diccionario de movimientos base de Otto
         const macros = {
-            // NUEVO ADELANTE (El que antes era Moonwalk)
             'adelante': [
-                {ll: 90, lf: 60, rl: 87, rf: 50, speed: 200, wait: 200},  // Levanta pies
-                {ll: 120, lf: 60, rl: 117, rf: 50, speed: 300, wait: 300}, // Gira caderas hacia adelante
-                {ll: 120, lf: 120, rl: 117, rf: 110, speed: 200, wait: 200},// Cambia inclinación
-                {ll: 90, lf: 120, rl: 87, rf: 110, speed: 300, wait: 300}  // Regresa caderas
+                {ll: 90, lf: 60, rl: 87, rf: 50, speed: 200, wait: 200},
+                {ll: 120, lf: 60, rl: 117, rf: 50, speed: 300, wait: 300},
+                {ll: 120, lf: 120, rl: 117, rf: 110, speed: 200, wait: 200},
+                {ll: 90, lf: 120, rl: 87, rf: 110, speed: 300, wait: 300}
             ],
-            
-            // NUEVO ATRÁS (Inverso del adelante: pies iguales, caderas al lado contrario)
             'atras': [
-                {ll: 90, lf: 60, rl: 87, rf: 50, speed: 200, wait: 200},  // Mismos pies que adelante
-                {ll: 60, lf: 60, rl: 57, rf: 50, speed: 300, wait: 300},  // Caderas hacia ATRÁS (60/57 en vez de 120/117)
-                {ll: 60, lf: 120, rl: 57, rf: 110, speed: 200, wait: 200},// Mismos pies que adelante
-                {ll: 90, lf: 120, rl: 87, rf: 110, speed: 300, wait: 300} // Regresa caderas al centro
+                {ll: 90, lf: 60, rl: 87, rf: 50, speed: 200, wait: 200},
+                {ll: 60, lf: 60, rl: 57, rf: 50, speed: 300, wait: 300},
+                {ll: 60, lf: 120, rl: 57, rf: 110, speed: 200, wait: 200},
+                {ll: 90, lf: 120, rl: 87, rf: 110, speed: 300, wait: 300}
             ],
-
-            // NUEVO MOONWALK (El que antes era Adelante)
             'moonwalk': [
                 {ll: 90, lf: 60, rl: 87, rf: 81, speed: 300, wait: 300}, 
                 {ll: 110, lf: 60, rl: 107, rf: 81, speed: 300, wait: 300}, 
@@ -356,8 +328,6 @@
                 {ll: 90, lf: 90, rl: 87, rf: 110, speed: 300, wait: 300}, 
                 {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
             ],
-
-            // Los demás se mantienen igual
             'izquierda': [
                 {ll: 90, lf: 120, rl: 87, rf: 81, speed: 300, wait: 300}, 
                 {ll: 110, lf: 120, rl: 107, rf: 81, speed: 300, wait: 300}, 
@@ -367,6 +337,21 @@
                 {ll: 90, lf: 90, rl: 87, rf: 50, speed: 300, wait: 300}, 
                 {ll: 70, lf: 90, rl: 67, rf: 50, speed: 300, wait: 300}, 
                 {ll: 90, lf: 90, rl: 87, rf: 81, speed: 300, wait: 300} 
+            ],
+            'saludo': [
+                {ll: 87, lf: 149, rl: 94, rf: 92, speed: 500, wait: 500},
+                {ll: 87, lf: 149, rl: 94, rf: 36, speed: 500, wait: 500},
+                {ll: 87, lf: 94, rl: 94, rf: 20, speed: 500, wait: 500},
+                {ll: 87, lf: 68, rl: 94, rf: 55, speed: 500, wait: 500},
+                {ll: 22, lf: 148, rl: 94, rf: 109, speed: 500, wait: 500},
+                {ll: 87, lf: 147, rl: 107, rf: 129, speed: 500, wait: 500},
+                {ll: 87, lf: 83, rl: 107, rf: 129, speed: 500, wait: 500},
+                {ll: 87, lf: 135, rl: 107, rf: 129, speed: 500, wait: 500},
+                {ll: 87, lf: 59, rl: 107, rf: 129, speed: 500, wait: 500},
+                {ll: 87, lf: 120, rl: 107, rf: 129, speed: 500, wait: 500},
+                {ll: 87, lf: 45, rl: 107, rf: 129, speed: 500, wait: 500},
+                {ll: 87, lf: 74, rl: 107, rf: 129, speed: 500, wait: 500},
+                {ll: 87, lf: 85, rl: 92, rf: 85, speed: 500, wait: 500}
             ],
             'feliz': [
                 {ll: 90, lf: 70, rl: 87, rf: 100, speed: 150, wait: 150}, 
@@ -386,65 +371,52 @@
                 {ll: 120, lf: 60, rl: 57, rf: 100, speed: 80, wait: 100},  
                 {ll: 120, lf: 80, rl: 57, rf: 90, speed: 80, wait: 100},   
                 {ll: 90, lf: 90, rl: 87, rf: 81, speed: 800, wait: 800}    
-            ]
+            ],
+            'home': [
+                {ll: 87, lf: 80, rl: 90, rf: 85, speed: 500, wait: 500}
+          ]
         };
 
-        // Función reproductora de Macros
         async function reproducirMacro(secuencia, repeticiones = 1) {
-            if(rutina_activa || macro_activa) {
-                console.log("Ya hay una rutina ejecutándose");
-                return;
-            }
-            
+            if(rutina_activa || macro_activa) return;
             macro_activa = true;
             
             for(let r = 0; r < repeticiones; r++) {
                 for(let pose of secuencia) {
-                    if (!macro_activa) {
-                        break; 
-                    }
+                    if (!macro_activa) break; 
                     try {
                         await fetch(`/set_pose?ll=${pose.ll}&lf=${pose.lf}&rl=${pose.rl}&rf=${pose.rf}&speed=${pose.speed}`);
                     } catch(e) {}
                     
-                    // Sincronización visual
                     ['ll', 'lf', 'rl', 'rf'].forEach(m => {
                         document.getElementById(m).value = pose[m];
                         document.getElementById('val_' + m).innerText = pose[m] + '°';
                     });
-                    
                     await new Promise(r => setTimeout(r, pose.wait));
                 }
             }
             macro_activa = false;
         }
 
-        // Activadores de los botones
         function macroCaminar(direccion) {
-            // Detenemos cualquier cosa que esté haciendo
             detenerRutina(); 
-            // Damos 500ms para que Otto vuelva a "Home" antes de empezar a caminar
             setTimeout(() => {
                 if(macros[direccion]) {
-                    // Camina repitiendo el ciclo 3 veces
                     reproducirMacro(macros[direccion], 3); 
                 }
             }, 500);
         }
 
-function ejecutarBaile(baile) {
-            // Detenemos a Otto y lo centramos
+        function ejecutarBaile(baile) {
             detenerRutina(); 
-            
-            // Damos 500ms para que vuelva a su posición inicial segura
             setTimeout(() => {
                 if(macros[baile]) {
-                    // Repetimos el ciclo de baile 4 veces para que dure más
-                    reproducirMacro(macros[baile], 4); 
+                    // Modificación inteligente: El saludo es muy largo, se reproduce 1 sola vez. Los bailes 4 veces.
+                    let repeticiones = (baile === 'saludo') ? 1 : 4; 
+                    reproducirMacro(macros[baile], repeticiones); 
                 }
             }, 500);
         }
-
     </script>
 </body>
 </html>
