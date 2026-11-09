@@ -45,10 +45,10 @@
         <!-- COLUMNA IZQ: Control Manual y Grabación -->
         <div class="card">
             <h2>Control y Nueva Pose</h2>
-            <div class="slider-group"><label>Pierna Izquierda (LL) <span id="val_ll">90&deg;</span></label><input type="range" id="ll" min="0" max="180" value="90" oninput="updateServo('ll', this.value)"></div>
-            <div class="slider-group"><label>Pie Izquierdo (LF) <span id="val_lf">90&deg;</span></label><input type="range" id="lf" min="0" max="180" value="90" oninput="updateServo('lf', this.value)"></div>
-            <div class="slider-group"><label>Pierna Derecha (RL) <span id="val_rl">87&deg;</span></label><input type="range" id="rl" min="0" max="180" value="87" oninput="updateServo('rl', this.value)"></div>
-            <div class="slider-group"><label>Pie Derecho (RF) <span id="val_rf">81&deg;</span></label><input type="range" id="rf" min="0" max="180" value="81" oninput="updateServo('rf', this.value)"></div>
+            <div class="slider-group"><label>Pierna Izquierda (LL) <span id="val_ll">87&deg;</span></label><input type="range" id="ll" min="0" max="180" value="87" oninput="updateServo('ll', this.value)"></div>
+            <div class="slider-group"><label>Pie Izquierdo (LF) <span id="val_lf">80&deg;</span></label><input type="range" id="lf" min="0" max="180" value="80" oninput="updateServo('lf', this.value)"></div>
+            <div class="slider-group"><label>Pierna Derecha (RL) <span id="val_rl">90&deg;</span></label><input type="range" id="rl" min="0" max="180" value="90" oninput="updateServo('rl', this.value)"></div>
+            <div class="slider-group"><label>Pie Derecho (RF) <span id="val_rf">85&deg;</span></label><input type="range" id="rf" min="0" max="180" value="85" oninput="updateServo('rf', this.value)"></div>
             
             <hr style="border: 1px solid #eee; margin: 15px 0;">
             
@@ -95,8 +95,8 @@
                     <button style="background: #9b5de5;" onclick="ejecutarBaile('feliz')">😄 Feliz</button>
                     <button style="background: #f15bb5;" onclick="ejecutarBaile('swing')">💃 Swing</button>
                     <button style="background: #00bbf9;" onclick="ejecutarBaile('susto')">😱 Susto</button>
-                    /**/<button style="background: #00bbf9;" onclick="ejecutarBaile('moonwalk')">🌙 Moonwalk</button>
-                    <button style="background: #ff9f1c; color: black;" onclick="ejecutarBaile('saludo')">👋 Saludo</button>
+                    <button style="background: #00bbf9;" onclick="ejecutarBaile('moonwalk')">🌙 Moonwalk</button>
+                    <button style="background: #ff9f1c; color: black; grid-column: span 2;" onclick="ejecutarBaile('saludo')">👋 Saludo</button>
                 </div>
             </div>
         </div>
@@ -139,7 +139,8 @@
 
     <script>
         let rutina = [];
-        let currentPose = {ll: 90, lf: 90, rl: 87, rf: 81, speed: 500, wait: 500};
+        // Se inicializa con los valores calibrados de home
+        let currentPose = {ll: 87, lf: 80, rl: 90, rf: 85, speed: 500, wait: 500};
         let editIndex = -1;
         let timeout;
         
@@ -351,6 +352,7 @@
                 {ll: 87, lf: 120, rl: 107, rf: 129, speed: 500, wait: 500},
                 {ll: 87, lf: 45, rl: 107, rf: 129, speed: 500, wait: 500},
                 {ll: 87, lf: 74, rl: 107, rf: 129, speed: 500, wait: 500},
+                {ll: 87, lf: 74, rl: 92, rf: 129, speed: 500, wait: 500},
                 {ll: 87, lf: 85, rl: 92, rf: 85, speed: 500, wait: 500}
             ],
             'feliz': [
@@ -374,7 +376,7 @@
             ],
             'home': [
                 {ll: 87, lf: 80, rl: 90, rf: 85, speed: 500, wait: 500}
-          ]
+            ]
         };
 
         async function reproducirMacro(secuencia, repeticiones = 1) {
@@ -395,6 +397,20 @@
                     await new Promise(r => setTimeout(r, pose.wait));
                 }
             }
+            
+            // LÓGICA DE RETORNO A HOME: Al terminar la macro, si no fue interrumpida, vuelve a home.
+            if (macro_activa) {
+                let poseHome = macros['home'][0];
+                try {
+                    await fetch(`/set_pose?ll=${poseHome.ll}&lf=${poseHome.lf}&rl=${poseHome.rl}&rf=${poseHome.rf}&speed=${poseHome.speed}`);
+                } catch(e) {}
+                
+                ['ll', 'lf', 'rl', 'rf'].forEach(m => {
+                    document.getElementById(m).value = poseHome[m];
+                    document.getElementById('val_' + m).innerText = poseHome[m] + '°';
+                });
+            }
+            
             macro_activa = false;
         }
 
@@ -411,7 +427,6 @@
             detenerRutina(); 
             setTimeout(() => {
                 if(macros[baile]) {
-                    // Modificación inteligente: El saludo es muy largo, se reproduce 1 sola vez. Los bailes 4 veces.
                     let repeticiones = (baile === 'saludo') ? 1 : 4; 
                     reproducirMacro(macros[baile], repeticiones); 
                 }
